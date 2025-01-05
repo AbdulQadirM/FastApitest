@@ -9,7 +9,6 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings , ChatOpenAI
 from langchain_chroma import Chroma
 
-
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from openai import OpenAI
@@ -29,20 +28,12 @@ class TranscriptionRequest(BaseModel):
 
 @app.post("/transcribe-video/")
 async def transcribe_video(request: TranscriptionRequest):
-    """
-    Endpoint to transcribe a video file using OpenAI Whisper model.
-    """
-    try:
-        # Initialize VideoTranscriber with the provided OpenAI API key
-        video_transcriber = VideoTranscriber(openai_api_key=request.openai_api_key)
-        
-        # Perform transcription on the provided file path
-        transcription = video_transcriber.transcribe(request.file_path)
-        
-        return {"status": "success", "transcription": transcription}
+    video_transcriber = VideoTranscriber(openai_api_key=request.openai_api_key)
+    # Perform transcription on the provided file path
+    transcription = video_transcriber.transcribe(request.file_path)
     
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing transcription request: {str(e)}")
+    return {"status": "success", "transcription": transcription}
+
 
 
 # Combined endpoint for both uploading documents and checking vector store status
@@ -65,29 +56,20 @@ async def manage_documents(
         file_paths = []
         for file in files:
             file_location = f"temp_files/{file.filename}"
-            try:
-                # Save the file to the "temp_files" directory
-                with open(file_location, "wb") as buffer:
-                    buffer.write(await file.read())
+            with open(file_location, "wb") as buffer:
+                buffer.write(await file.read())
                 file_paths.append(file_location)
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Error saving file {file.filename}: {str(e)}")
-        
-        try:
+           
             # Upload documents to the vector store
-            uploader.upload_documents(file_paths)
-            return {"status": "success", "message": f"Documents uploaded successfully to {vectorstore_directory}."}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error uploading documents: {str(e)}")
-    
-    else:  # If no files are provided, it is a check request
-        try:
-            # Retrieve the vectorstore to check if it is initialized
-            vectorstore = uploader.get_vectorstore()
-            return {"status": "success", "message": "Vector store is initialized."}
-        except RuntimeError:
-            return {"status": "error", "message": "Vector store is not initialized."}
+        uploader.upload_documents(file_paths)
+        return {"status": "success", "message": f"Documents uploaded successfully to {vectorstore_directory}."}
 
+    else:
+        file_paths.append(file_location)  # If no files are provided, it is a check request
+  
+        vectorstore = uploader.get_vectorstore()
+        return {"status": "success", "message": "Vector store is initialized."}
+       
 
 # Pydantic model to handle user input
 class QueryRequest(BaseModel):
@@ -97,33 +79,23 @@ class QueryRequest(BaseModel):
 
 @app.post("/ask-chatbot/")
 async def ask_chatbot(query_request: QueryRequest):
-    """
-    Endpoint to process user query with chatbot, and return response from vectorstore.
-    """
-    try:
-        # Set the OpenAI API Key
-        openai_api_key = query_request.openai_api_key
-        os.environ["OPENAI_API_KEY"] = openai_api_key
-        
-     # Initialize the vector store
-                
-        loader = VectorStoreLoader()
-        # Initialize the vector store
-        loader.initialize_vectorstore(query_request.vectorstore_directory)
-        # Get the initialized vector store
-        vectorstores = loader.get_vectorstore()
-        
-        
-        # Create an instance of the Chatbot class with the OpenAI API key
-        chatbot = Chatbot(openai_api_key)
-        
-        # Get the response from the chatbot
-        response, chat_history = chatbot.create_and_get_chat_response(vectorstores, query_request.user_query)
-
-        return {"status": "success", "response": response, "chat_history": chat_history}
+    openai_api_key = query_request.openai_api_key
+    os.environ["OPENAI_API_KEY"] = openai_api_key
+            
+    loader = VectorStoreLoader()
+    # Initialize the vector store
+    loader.initialize_vectorstore(query_request.vectorstore_directory)
+    # Get the initialized vector store
+    vectorstores = loader.get_vectorstore()
     
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
+    
+    # Create an instance of the Chatbot class with the OpenAI API key
+    chatbot = Chatbot(openai_api_key)
+    
+    # Get the response from the chatbot
+    response, chat_history = chatbot.create_and_get_chat_response(vectorstores, query_request.user_query)
+
+    return {"status": "success", "response": response, "chat_history": chat_history}
     
 if __name__ == "__main__":
     import uvicorn
