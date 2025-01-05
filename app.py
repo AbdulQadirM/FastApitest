@@ -1,10 +1,6 @@
-from fastapi import FastAPI
-import unvicorn
+from flask import Flask
+app = Flask(__name__)
 
-app = FastAPI()
-@app.get("/")
-def first_example():
-'''
-	FG Example First Fast API Example 
-'''
-	return {"GFG Example": "FastAPI"}
+@app.route("/")
+def hello():
+    return "Hello, World!"
