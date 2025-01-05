@@ -5,7 +5,7 @@ from openai import OpenAI
 import os
 
 class Chatbot:
-    def __init__(self, openai_api_key: str):
+    def _init_(self, openai_api_key: str):
         """
         Initialize the Chatbot with an OpenAI API key and set up the OpenAI client.
         """
@@ -50,6 +50,3 @@ class Chatbot:
         except Exception as e:
             print(f"Error occurred during query processing: {str(e)}")
             return "An error occurred while processing your query.", []
-
-
-
