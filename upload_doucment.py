@@ -3,16 +3,17 @@ import os
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_openai import ChatOpenAI
-from langchain_chroma import Chroma
 from langchain_community.document_loaders import Docx2txtLoader
 from openai import OpenAI
+from langchain_community.vectorstores import FAISS
+
 
 class DocumentUploader:
     """
     A class for uploading and storing documents in a vector store using Chroma.
     """
 
-    def __init__(self, vectorstore_directory='Database', openai_api_key=None):
+    def _init_(self, vectorstore_directory='Database', openai_api_key=None):
         """
         Initialize DocumentUploader with an optional custom directory for the vector store
         and an optional OpenAI API key.
@@ -50,13 +51,9 @@ class DocumentUploader:
             documents = loader.load()
             text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
             docs = text_splitter.split_documents(documents)
+            vectorstore = FAISS.from_documents(docs, OpenAIEmbeddings())
+            vectorstore.save_local(folder_path=self.vectorstore_directory)
 
-            # Initialize vector store only on the first call
-            if self.vectorstore is None:
-                self.vectorstore = Chroma.from_documents(docs, OpenAIEmbeddings(), persist_directory=self.vectorstore_directory)
-            else:
-                # Add new documents to the existing vector store
-                self.vectorstore.add_documents(docs)
 
     def get_vectorstore(self):
         """
