@@ -1,5 +1,4 @@
 langchain==0.3.14
-fastapi==0.115.6
 langchain_community==0.3.14
 openai==1.59.3
 langchain_openai==0.2.14
