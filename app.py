@@ -1,6 +1,9 @@
-from flask import Flask
-app = Flask(__name__)
+from fastapi import FastAPI
 
-@app.route("/")
-def hello():
-    return "Hello, World!"
+# Create a FastAPI app instance
+app = FastAPI()
+
+# Define a route
+@app.get("/")
+def read_root():
+    return {"message": "Hello, World!"}
