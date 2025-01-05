@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+import unvicorn
+
 app = FastAPI()
 @app.get("/")
 def first_example():
