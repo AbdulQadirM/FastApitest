@@ -115,7 +115,7 @@ from langchain_community.vectorstores import FAISS
 
 
 class DocumentUploader:
-    def _init_(self, vectorstore_directory: str = "Database"):
+    def vector_dict(self, vectorstore_directory: str = "Database"):
         """
         Initialize DocumentUploader with the directory for the vector store.
         The directory is set to "Database" by default.
@@ -191,7 +191,8 @@ async def manage_documents(
                 f.write(await file.read())
 
         # Upload documents to vector store
-        uploader = DocumentUploader(vectorstore_directory=vectorstore_path)
+        uploader = DocumentUploader()
+        uploader.vector_dict()
         uploader.upload_documents(temp_file_paths)
 
         # Clean up temporary files
