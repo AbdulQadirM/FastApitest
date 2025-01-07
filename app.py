@@ -103,42 +103,55 @@
 
 
 
-from fastapi import FastAPI, UploadFile, HTTPException, Form
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import uvicorn
 import os
-from openai import OpenAI
-from langchain_openai import ChatOpenAI
+from typing import List
+from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_openai import OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
 
 
-class VideoTranscriber:
-    def _init_(self, vectorstore_directory="Database"):
-        self.client = None  # OpenAI client will be initialized with the API key dynamically
-        self.vectorstore_directory = vectorstore_directory
+class DocumentUploader:
+    def _init_(self, vectorstore_directory: str = "Database"):
+        """
+        Initialize DocumentUploader with the directory for the vector store.
+        The directory is set to "Database" by default.
+        """
+        self.vectorstore_directory = os.path.abspath(vectorstore_directory)
         os.makedirs(self.vectorstore_directory, exist_ok=True)
 
-    def set_openai_api_key(self, api_key: str):
+    def upload_documents(self, file_paths: List[str]):
         """
-        Set the OpenAI API key dynamically.
-        """
-        os.environ["OPENAI_API_KEY"] = api_key
-        self.client = OpenAI()
+        Uploads documents to the vector store.
 
-    def transcribe(self, file_path: str):
+        Args:
+            file_paths: A list of file paths to upload.
         """
-        Method to transcribe the given audio/video file.
-        """
-        if not self.client:
-            raise ValueError("OpenAI client is not initialized. Set the API key first.")
-        with open(file_path, "rb") as audio_file:
-            transcription = self.client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file,
-                response_format="text",
-            )
-        return transcription
+        for file_path in file_paths:
+            file_extension = os.path.splitext(file_path)[1].lower()
+
+            # Choose the appropriate loader based on file type
+            if file_extension == ".txt":
+                loader = TextLoader(file_path)
+            elif file_extension == ".docx":
+                loader = Docx2txtLoader(file_path)
+            elif file_extension == ".pdf":
+                loader = PyPDFLoader(file_path)
+            else:
+                print(f"Unsupported file type: {file_extension}. Skipping {file_path}.")
+                continue
+
+            # Load the document and split into chunks
+            documents = loader.load()
+            text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+            docs = text_splitter.split_documents(documents)
+
+            # Create the FAISS vector store and save locally
+            vectorstore = FAISS.from_documents(docs, OpenAIEmbeddings())
+            vectorstore.save_local(folder_path=self.vectorstore_directory)
 
 
 # Initialize FastAPI app
@@ -153,43 +166,46 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize VideoTranscriber
-transcriber = VideoTranscriber()
-
-
-@app.post("/upload/")
-async def upload_video(
-    file: UploadFile,
-    openai_api_key: str = Form(...),  # Accept API key as a form field
+@app.post("/manage-documents/")
+async def manage_documents(
+    files: List[UploadFile],
+    openai_api_key: str = Form(...),
 ):
     try:
-        # Set the OpenAI API key dynamically from the request
-        transcriber.set_openai_api_key(openai_api_key)
+        # Set the OpenAI API key dynamically
+        os.environ["OPENAI_API_KEY"] = openai_api_key
 
-        # Save the uploaded file temporarily
-        upload_dir = "uploads"
-        os.makedirs(upload_dir, exist_ok=True)
-        file_path = os.path.join(upload_dir, file.filename)
+        # The directory is always "Database"
+        vectorstore_path = os.path.abspath("Database")
+        os.makedirs(vectorstore_path, exist_ok=True)
 
-        with open(file_path, "wb") as f:
-            f.write(await file.read())
+        # Save uploaded files temporarily
+        temp_dir = "temp_uploads"
+        os.makedirs(temp_dir, exist_ok=True)
 
-        # Perform transcription
-        transcription = transcriber.transcribe(file_path)
+        temp_file_paths = []
+        for file in files:
+            temp_path = os.path.join(temp_dir, file.filename)
+            temp_file_paths.append(temp_path)
+            with open(temp_path, "wb") as f:
+                f.write(await file.read())
 
-        # Clean up the uploaded file
-        os.remove(file_path)
+        # Upload documents to vector store
+        uploader = DocumentUploader(vectorstore_directory=vectorstore_path)
+        uploader.upload_documents(temp_file_paths)
 
-        return JSONResponse(content={"transcription": transcription})
+        # Clean up temporary files
+        for temp_path in temp_file_paths:
+            os.remove(temp_path)
+
+        return JSONResponse(content={"message": "Documents uploaded and vector store updated successfully."})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to the Video Transcription API!"}
-
-if __name__ == "__main__":
+    return {"message": "Welcome to the Document Uploader API!"}if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8000))  # Use PORT from environment variables
     uvicorn.run(app, host="0.0.0.0", port=port)
