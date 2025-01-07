@@ -179,7 +179,7 @@ async def ask_chatbot(query_request: QueryRequest):
         
         # Initialize the chatbot with the OpenAI API key
         chatbot = Chatbot()
-        chatbot.callApi()
+        chatbot.callApi(openai_api_key)
 
         # Get the chatbot response and chat history
         response, chat_history = chatbot.create_and_get_chat_response(vectorstore, query_request.user_query)
