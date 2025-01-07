@@ -5,7 +5,7 @@ from openai import OpenAI
 import os
 
 class Chatbot:
-    def _init_(self, openai_api_key: str):
+    def callApi(self, openai_api_key: str):
         """
         Initialize the Chatbot with an OpenAI API key and set up the OpenAI client.
         """
