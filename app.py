@@ -178,7 +178,8 @@ async def ask_chatbot(query_request: QueryRequest):
         vectorstore = loader.get_vectorstore()  # Get the initialized vector store
         
         # Initialize the chatbot with the OpenAI API key
-        chatbot = Chatbot(openai_api_key)
+        chatbot = Chatbot()
+        chatbot.callApi()
 
         # Get the chatbot response and chat history
         response, chat_history = chatbot.create_and_get_chat_response(vectorstore, query_request.user_query)
