@@ -3,6 +3,8 @@ langchain_community==0.3.14
 openai==1.59.3
 python-multipart
 langchain_openai==0.2.14
+faiss-cpu
 fastapi
 uvicorn
 gunicorn
+pypdf
