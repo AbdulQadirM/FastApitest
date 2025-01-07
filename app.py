@@ -208,6 +208,6 @@ async def root():
     return {"message": "Welcome to the Document Uploader API!"}
     
 if __name__ == "__main__":
-import uvicorn
-port = int(os.getenv("PORT", 8000))  # Use PORT from environment variables
-uvicorn.run(app, host="0.0.0.0", port=port)
+    import uvicorn
+    port = int(os.getenv("PORT", 8000))  # Use PORT from environment variables
+    uvicorn.run(app, host="0.0.0.0", port=port)
