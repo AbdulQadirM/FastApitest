@@ -103,36 +103,35 @@
 
 
 
-
-from fastapi import FastAPI, UploadFile, HTTPException
+from fastapi import FastAPI, UploadFile, HTTPException, Form
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import uvicorn
 import os
-from dotenv import load_dotenv
 from openai import OpenAI
 from langchain_openai import ChatOpenAI
 
-# Load environment variables from .env file
-load_dotenv()
 
 class VideoTranscriber:
     def _init_(self, vectorstore_directory="Database"):
-        # Load OpenAI API Key from environment variables
-        openai_api_key = os.getenv("OPENAI_API_KEY")
-        if not openai_api_key:
-            raise ValueError("OPENAI_API_KEY is not set in the .env file")
-        
-        os.environ["OPENAI_API_KEY"] = openai_api_key
-        self.client = OpenAI()
-        self.llm = ChatOpenAI(model="gpt-4o", temperature=0.1)
+        self.client = None  # OpenAI client will be initialized with the API key dynamically
         self.vectorstore_directory = vectorstore_directory
         os.makedirs(self.vectorstore_directory, exist_ok=True)
+
+    def set_openai_api_key(self, api_key: str):
+        """
+        Set the OpenAI API key dynamically.
+        """
+        os.environ["OPENAI_API_KEY"] = api_key
+        self.client = OpenAI()
 
     def transcribe(self, file_path: str):
         """
         Method to transcribe the given audio/video file.
         """
+        if not self.client:
+            raise ValueError("OpenAI client is not initialized. Set the API key first.")
         with open(file_path, "rb") as audio_file:
             transcription = self.client.audio.transcriptions.create(
                 model="whisper-1",
@@ -155,14 +154,18 @@ app.add_middleware(
 )
 
 # Initialize VideoTranscriber
-try:
-    transcriber = VideoTranscriber()
-except ValueError as e:
-    raise RuntimeError(f"Initialization error: {e}")
+transcriber = VideoTranscriber()
+
 
 @app.post("/upload/")
-async def upload_video(file: UploadFile):
+async def upload_video(
+    file: UploadFile,
+    openai_api_key: str = Form(...),  # Accept API key as a form field
+):
     try:
+        # Set the OpenAI API key dynamically from the request
+        transcriber.set_openai_api_key(openai_api_key)
+
         # Save the uploaded file temporarily
         upload_dir = "uploads"
         os.makedirs(upload_dir, exist_ok=True)
@@ -180,6 +183,7 @@ async def upload_video(file: UploadFile):
         return JSONResponse(content={"transcription": transcription})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/")
 async def root():
