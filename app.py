@@ -105,71 +105,32 @@
 
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import os
+from chat_funtion import Chatbot 
 from typing import List
-from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
+from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from upload_doucment import DocumentUploader
+from vectorstore_loader import VectorStoreLoader
 
-
-class DocumentUploader:
-    def vector_dict(self, vectorstore_directory: str = "Database"):
-        """
-        Initialize DocumentUploader with the directory for the vector store.
-        The directory is set to "Database" by default.
-        """
-        self.vectorstore_directory = os.path.abspath(vectorstore_directory)
-        os.makedirs(self.vectorstore_directory, exist_ok=True)
-
-    def upload_documents(self, file_paths: List[str]):
-        """
-        Uploads documents to the vector store.
-
-        Args:
-            file_paths: A list of file paths to upload.
-        """
-        for file_path in file_paths:
-            file_extension = os.path.splitext(file_path)[1].lower()
-
-            # Choose the appropriate loader based on file type
-            if file_extension == ".txt":
-                loader = TextLoader(file_path)
-            elif file_extension == ".docx":
-                loader = Docx2txtLoader(file_path)
-            elif file_extension == ".pdf":
-                loader = PyPDFLoader(file_path)
-            else:
-                print(f"Unsupported file type: {file_extension}. Skipping {file_path}.")
-                continue
-
-            # Load the document and split into chunks
-            documents = loader.load()
-            text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-            docs = text_splitter.split_documents(documents)
-
-            # Create the FAISS vector store and save locally
-            vectorstore = FAISS.from_documents(docs, OpenAIEmbeddings())
-            vectorstore.save_local(folder_path=self.vectorstore_directory)
+# Pydantic model to handle user input for chatbot
+class QueryRequest(BaseModel):
+    user_query: str
+    openai_api_key: str
+    # vectorstore_directory: str = "Database"  # Default directory is "Database"
 
 
 # Initialize FastAPI app
 app = FastAPI()
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 @app.post("/manage-documents/")
 async def manage_documents(
     files: List[UploadFile],
     openai_api_key: str = Form(...),
+      # Default directory is "Database"
 ):
     try:
         # Set the OpenAI API key dynamically
@@ -200,14 +161,34 @@ async def manage_documents(
             os.remove(temp_path)
 
         return JSONResponse(content={"message": "Documents uploaded and vector store updated successfully."})
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/")
-async def root():
-    return {"message": "Welcome to the Document Uploader API!"}
+@app.post("/ask-chatbot/")
+async def ask_chatbot(query_request: QueryRequest):
+    try:
+        openai_api_key = query_request.openai_api_key
+        os.environ["OPENAI_API_KEY"] = openai_api_key  # Set the OpenAI API key
+        
+        # Initialize vector store loader
+        loader = VectorStoreLoader()
+        loader.initialize_vectorstore("Database")  # Load the vector store
+        vectorstore = loader.get_vectorstore()  # Get the initialized vector store
+        
+        # Initialize the chatbot with the OpenAI API key
+        chatbot = Chatbot(openai_api_key)
+
+        # Get the chatbot response and chat history
+        response, chat_history = chatbot.create_and_get_chat_response(vectorstore, query_request.user_query)
+        
+        return {"status": "success", "response": response, "chat_history": chat_history}
     
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8000))  # Use PORT from environment variables
