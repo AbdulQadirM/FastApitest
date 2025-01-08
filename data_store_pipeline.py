@@ -28,7 +28,7 @@ from langchain_openai import ChatOpenAI
 from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
-from langchain.schema import Document  # Import the Document class
+from langchain.schema import Documen
 
 class VideoTranscriber:
     def vec_init(self, vectorstore_directory="Database"):
