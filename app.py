@@ -107,6 +107,7 @@ from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import os
+from langchain.schema import Document
 from chat_funtion import Chatbot 
 from typing import List
 from langchain_openai import OpenAIEmbeddings
