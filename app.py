@@ -126,6 +126,49 @@ class QueryRequest(BaseModel):
 # Initialize FastAPI app
 app = FastAPI()
 
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Initialize VideoTranscriber
+transcriber = VideoTranscriber()
+
+
+@app.post("/upload/")
+async def upload_video(
+    file: UploadFile,
+    openai_api_key: str = Form(...),  # Accept API key as a form field
+):
+    try:
+        # Set the OpenAI API key dynamically from the request
+        transcriber.set_openai_api_key(openai_api_key)
+
+        # Save the uploaded file temporarily
+        upload_dir = "uploads"
+        os.makedirs(upload_dir, exist_ok=True)
+        file_path = os.path.join(upload_dir, file.filename)
+
+        with open(file_path, "wb") as f:
+            f.write(await file.read())
+
+        # Perform transcription
+        transcriber.vec_init()
+        transcription = transcriber.transcribe(file_path)
+
+        # Clean up the uploaded file
+        os.remove(file_path)
+
+        return JSONResponse(content={"transcription": transcription})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 @app.post("/manage-documents/")
 async def manage_documents(
     files: List[UploadFile],
