@@ -115,6 +115,9 @@ from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2t
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from upload_doucment import DocumentUploader
 from vectorstore_loader import VectorStoreLoader
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from data_store_pipeline import VideoTranscriber
 
 # Pydantic model to handle user input for chatbot
 class QueryRequest(BaseModel):
